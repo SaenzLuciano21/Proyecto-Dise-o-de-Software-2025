@@ -1,15 +1,15 @@
-##Proyecto Taller de Diseño de Software
-##Integrantes
+# Proyecto Taller de Diseño de Software
+## Integrantes:
 
     Luciano Saenz (@SaenzLuciano21)
 
-##Descripción
+## Descripción
 
 Este proyecto implementa un compilador básico en C utilizando Lex y Bison.
 Incluye:
 
     Analizador léxico
-    Parser
+    Analizador sintáctico
 
 ## Estructura del proyecto
 
@@ -23,13 +23,13 @@ Incluye:
 │ └── entrada.c
 ├── README.md
 
-##Requisitos
+## Requisitos
 
 Instalar las siguientes dependencias:
 
     sudo apt install flex bison gcc
 
-##Compilación
+## Compilación
 
 Se puede compilar y ejecutar usando los siguientes comandos desde la carpeta `src`:
 
@@ -37,7 +37,9 @@ flex calc-lexico.l
 bison -d calc-sintaxis.y
 gcc -o calc lex.yy.c calc-sintaxis.tab.c -lfl
 
-##Ejecución Tests
+o ejecutando el archivo script "Run.sh" dentro de la carpeta `src`.
+
+## Ejecución Tests
 
 Ejemplo de uso:
 
