@@ -2,16 +2,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "ast.h"
+#include "symtable.h"
 
 int yylex(void);
 void yyerror(const char *s);
+
+Scope* current_scope = NULL;
 %}
 
-/* ---------- UNION para yylval ---------- */
+/* ---------- UNION ---------- */
 %union {
-    int ival;       /* literales enteros */
-    char* sval;     /* identificadores */
+    int ival;
+    char* sval;
+    struct ASTNode* node;
+    VarType tipo;
 }
+
+/* ---------- TIPOS ---------- */
+%type <node> programa
+%type <node> declaraciones declaracion
+%type <node> sentencias sentencia
+%type <node> asignacion retorno while_stmt if_stmt
+%type <node> expr
+%type <node> expr_list
+%type <node> lista_param param
+%type <node> bloque
+%type <tipo> tipo
 
 /* ---------- TOKENS ---------- */
 %token T_EXTERN T_BOOL T_PROGRAM T_ELSE T_THEN T_FALSE T_IF T_INTEGER
@@ -26,7 +43,6 @@ void yyerror(const char *s);
 %nonassoc T_THEN
 %nonassoc T_ELSE
 
-/* ---------- PRECEDENCIAS ---------- */
 %left T_OR
 %left T_AND
 %left T_EQ T_LT T_GT
@@ -36,78 +52,159 @@ void yyerror(const char *s);
 
 %%
 
-/* ---------- GRAMÁTICA ---------- */
-
-/* Programa principal */
 programa
-    : T_PROGRAM T_ID T_LBRACE declaraciones sentencias T_RBRACE
-      { printf("Programa válido!\n"); }
+    : T_PROGRAM T_LBRACE declaraciones sentencias T_RBRACE
+      {
+          $$ = make_prog_node($3 ? $3->children : NULL, $3 ? $3->child_count:0,
+                              $4 ? $4->children : NULL, $4 ? $4->child_count:0);
+          print_ast($$,0);
+      }
     ;
 
-/* Declaraciones de variables */
 declaraciones
-    : /* vacío */
+    : /* vacío */ { $$ = NULL; }
     | declaraciones declaracion
+      {
+          if ($1 == NULL) {
+              ASTNode* arr[1] = { $2 };
+              $$ = make_block_node(arr, 1);
+          } else {
+              $1->children = realloc($1->children, sizeof(ASTNode*) * ($1->child_count + 1));
+              $1->children[$1->child_count++] = $2;
+              $$ = $1;
+          }
+      }
     ;
 
 declaracion
-    : T_INTEGER T_ID T_SEMI
-    | T_BOOL T_ID T_SEMI
+    : tipo T_ID T_SEMI
+      { insert_symbol(current_scope, $2, $1); $$ = make_id_node($2); }
+    | tipo T_ID T_LPAREN lista_param T_RPAREN bloque
+      { $$ = make_func_node($1, $2, $4 ? $4->children : NULL, $4 ? $4->child_count:0, $6); }
+    | tipo T_ID T_LPAREN lista_param T_RPAREN T_EXTERN T_SEMI
+      { $$ = make_extern_func_node($1, $2, $4 ? $4->children : NULL, $4 ? $4->child_count:0); }
     ;
 
-/* Lista de sentencias */
+bloque
+    : T_LBRACE declaraciones sentencias T_RBRACE
+      {
+          ASTNode* all_nodes[($2 ? $2->child_count :0) + ($3 ? $3->child_count :0)];
+          int idx = 0;
+          if ($2) {
+              for(int i=0;i<$2->child_count;i++) all_nodes[idx++] = $2->children[i];
+          }
+          if ($3) {
+              for(int i=0;i<$3->child_count;i++) all_nodes[idx++] = $3->children[i];
+          }
+          $$ = make_block_node(all_nodes, idx);
+      }
+    ;
+
 sentencias
-    : /* vacío */
+    : /* vacío */ { $$ = NULL; }
     | sentencias sentencia
+      {
+          if ($1 == NULL) {
+              ASTNode* arr[1] = { $2 };
+              $$ = make_block_node(arr, 1);
+          } else {
+              $1->children = realloc($1->children, sizeof(ASTNode*) * ($1->child_count + 1));
+              $1->children[$1->child_count++] = $2;
+              $$ = $1;
+          }
+      }
     ;
 
 sentencia
-    : asignacion
-    | retorno
-    | while_stmt
-    | if_stmt
+    : asignacion { $$ = $1; }
+    | retorno    { $$ = $1; }
+    | while_stmt { $$ = $1; }
+    | if_stmt    { $$ = $1; }
     ;
 
-/* Asignación */
 asignacion
     : T_ID T_ASSIGN expr T_SEMI
+      {
+          if (!lookup_symbol(current_scope, $1)) {
+              fprintf(stderr, "Error: identificador '%s' no declarado\n", $1);
+          }
+          $$ = make_assign_node(make_id_node($1), $3);
+      }
     ;
 
-/* Return */
 retorno
-    : T_RETURN expr T_SEMI
-    | T_RETURN T_SEMI
+    : T_RETURN expr T_SEMI { $$ = make_return_node($2); }
+    | T_RETURN T_SEMI      { $$ = make_return_node(NULL); }
     ;
 
-/* While */
 while_stmt
-    : T_WHILE T_LPAREN expr T_RPAREN T_LBRACE sentencias T_RBRACE
+    : T_WHILE T_LPAREN expr T_RPAREN bloque
+      { $$ = make_while_node($3, $5); }
     ;
 
-/* If */
 if_stmt
-    : T_IF T_LPAREN expr T_RPAREN T_THEN sentencia %prec T_THEN
-    | T_IF T_LPAREN expr T_RPAREN T_THEN sentencia T_ELSE sentencia
+    : T_IF T_LPAREN expr T_RPAREN T_THEN bloque %prec T_THEN
+      { $$ = make_if_node($3, $6, NULL); }
+    | T_IF T_LPAREN expr T_RPAREN T_THEN bloque T_ELSE bloque
+      { $$ = make_if_node($3, $6, $8); }
     ;
 
-/* Expresiones */
 expr
-    : T_INT_LITERAL
-    | T_TRUE
-    | T_FALSE
+    : T_INT_LITERAL       { $$ = make_int_node($1); }
+    | T_TRUE              { $$ = make_bool_node(1); }
+    | T_FALSE             { $$ = make_bool_node(0); }
     | T_ID
-    | expr T_PLUS expr
-    | expr T_MINUS expr
-    | expr T_MUL expr
-    | expr T_DIV expr
-    | expr T_MOD expr
-    | expr T_LT expr
-    | expr T_GT expr
-    | expr T_EQ expr
-    | expr T_AND expr
-    | expr T_OR expr
-    | T_NOT expr
-    | T_LPAREN expr T_RPAREN
+      {
+          if (!lookup_symbol(current_scope, $1)) {
+              fprintf(stderr, "Error: identificador '%s' no declarado\n", $1);
+          }
+          $$ = make_id_node($1);
+      }
+    | expr T_PLUS expr    { $$ = make_binop_node("+", $1, $3); }
+    | expr T_MINUS expr   { $$ = make_binop_node("-", $1, $3); }
+    | expr T_MUL expr     { $$ = make_binop_node("*", $1, $3); }
+    | expr T_DIV expr     { $$ = make_binop_node("/", $1, $3); }
+    | expr T_MOD expr     { $$ = make_binop_node("%", $1, $3); }
+    | expr T_LT expr      { $$ = make_binop_node("<", $1, $3); }
+    | expr T_GT expr      { $$ = make_binop_node(">", $1, $3); }
+    | expr T_EQ expr      { $$ = make_binop_node("==", $1, $3); }
+    | expr T_AND expr     { $$ = make_binop_node("&&", $1, $3); }
+    | expr T_OR expr      { $$ = make_binop_node("||", $1, $3); }
+    | T_NOT expr          { $$ = make_unop_node("!", $2); }
+    | T_ID T_LPAREN expr_list T_RPAREN
+        { $$ = make_func_call_node($1, $3 ? $3->children : NULL, $3 ? $3->child_count : 0); }
+    ;
+
+expr_list
+    : /* vacío */ { $$ = NULL; }
+    | expr { ASTNode* arr[1]={ $1 }; $$ = make_block_node(arr,1); }
+    | expr_list ',' expr
+      {
+          $1->children = realloc($1->children, sizeof(ASTNode*)*($1->child_count+1));
+          $1->children[$1->child_count++] = $3;
+          $$ = $1;
+      }
+    ;
+
+tipo
+    : T_INTEGER { $$ = TYPE_INT; }
+    | T_BOOL    { $$ = TYPE_BOOL; }
+    | T_VOID    { $$ = TYPE_VOID; }
+    ;
+
+lista_param
+    : /* vacío */ { $$ = NULL; }
+    | param { ASTNode* arr[1]={ $1 }; $$ = make_block_node(arr,1); }
+    | lista_param ',' param
+      {
+          $1->children = realloc($1->children,sizeof(ASTNode*)*($1->child_count+1));
+          $1->children[$1->child_count++]=$3;
+          $$=$1;
+      }
+    ;
+
+param
+    : tipo T_ID { $$ = make_param_node($1,$2); insert_symbol(current_scope,$2,$1); }
     ;
 
 %%
@@ -118,6 +215,8 @@ void yyerror(const char *s) {
 
 int main(int argc, char **argv) {
     extern FILE *yyin;
+    current_scope = create_scope(NULL);  // scope raíz del programa
+
     if (argc > 1) {
         yyin = fopen(argv[1], "r");
         if (!yyin) {
@@ -125,6 +224,9 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
-    return yyparse();
+    int result = yyparse();
+
+    free_scope(current_scope); // libera el scope raíz
+    return result;
 }
 
