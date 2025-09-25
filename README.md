@@ -10,6 +10,7 @@ Incluye:
 
     Analizador léxico
     Analizador sintáctico
+    Analizador Semántico (AST y TS)
 
 ## Estructura del proyecto
 
@@ -47,4 +48,4 @@ Ejemplo de uso:
     ./calc ../tests/entrada2.c
     ./calc ../tests/entrada3.c
     ./calc ../tests/entrada4.c
-
+    ./calc ../tests/entrada5.c
