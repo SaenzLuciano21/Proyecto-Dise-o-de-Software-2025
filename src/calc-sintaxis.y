@@ -10,6 +10,7 @@ void yyerror(const char *s);
 
 Scope* current_scope = NULL;
 %}
+%debug
 
 /* ---------- UNION ---------- */
 %union {
@@ -21,13 +22,16 @@ Scope* current_scope = NULL;
 
 /* ---------- TIPOS ---------- */
 %type <node> programa
-%type <node> declaraciones declaracion
-%type <node> sentencias sentencia
-%type <node> asignacion retorno while_stmt if_stmt
-%type <node> expr
-%type <node> expr_list
-%type <node> lista_param param
+%type <node> decl_vars var_decl
+/*%type <node> decl_funcs method_decl*/
 %type <node> bloque
+%type <node> sentencias
+%type <node> sentencia
+%type <node> decls decl
+%type <node> asignacion retorno while_stmt if_stmt
+%type <node> expr expr_list
+%type <node> lista_param param
+%type <node> method_call
 %type <tipo> tipo
 
 /* ---------- TOKENS ---------- */
@@ -51,19 +55,53 @@ Scope* current_scope = NULL;
 %right T_NOT
 
 %%
-
+    
 programa
-    : T_PROGRAM T_LBRACE declaraciones sentencias T_RBRACE
+  : T_PROGRAM T_LBRACE decls T_RBRACE
+    {
+      $$ = make_prog_node(
+          $3 ? $3->children : NULL,
+          $3 ? $3->child_count : 0,
+          NULL, 0);
+      print_ast($$, 0);
+    }
+  ;
+  
+decls
+    : /* vacío */ { $$ = NULL; }
+    | decls decl
       {
-          $$ = make_prog_node($3 ? $3->children : NULL, $3 ? $3->child_count:0,
-                              $4 ? $4->children : NULL, $4 ? $4->child_count:0);
-          print_ast($$,0);
+          if ($1 == NULL) {
+              ASTNode* arr[1] = { $2 };
+              $$ = make_block_node(arr, 1);
+          } else {
+              $1->children = realloc($1->children,
+                                     sizeof(ASTNode*) * ($1->child_count + 1));
+              $1->children[$1->child_count++] = $2;
+              $$ = $1;
+          }
       }
     ;
 
-declaraciones
+decl
+    : var_decl
+    | tipo T_ID T_LPAREN lista_param T_RPAREN bloque
+        { $$ = make_func_node($1, $2, $4 ? $4->children : NULL,
+                              $4 ? $4->child_count : 0, $6); }
+    | T_VOID T_ID T_LPAREN lista_param T_RPAREN bloque
+        { $$ = make_func_node(TYPE_VOID, $2, $4 ? $4->children : NULL,
+                              $4 ? $4->child_count : 0, $6); }
+    | tipo T_ID T_LPAREN lista_param T_RPAREN T_EXTERN T_SEMI
+        { $$ = make_extern_func_node($1, $2, $4 ? $4->children : NULL,
+                                     $4 ? $4->child_count : 0); }
+    | T_VOID T_ID T_LPAREN lista_param T_RPAREN T_EXTERN T_SEMI
+        { $$ = make_extern_func_node(TYPE_VOID, $2, $4 ? $4->children : NULL,
+                                     $4 ? $4->child_count : 0); }
+    ;
+
+decl_vars
     : /* vacío */ { $$ = NULL; }
-    | declaraciones declaracion
+    | decl_vars var_decl
       {
           if ($1 == NULL) {
               ASTNode* arr[1] = { $2 };
@@ -75,31 +113,30 @@ declaraciones
           }
       }
     ;
-
-declaracion
-    : tipo T_ID T_SEMI
-      { insert_symbol(current_scope, $2, $1); $$ = make_id_node($2); }
-    | tipo T_ID T_LPAREN lista_param T_RPAREN bloque
-      { $$ = make_func_node($1, $2, $4 ? $4->children : NULL, $4 ? $4->child_count:0, $6); }
-    | tipo T_ID T_LPAREN lista_param T_RPAREN T_EXTERN T_SEMI
-      { $$ = make_extern_func_node($1, $2, $4 ? $4->children : NULL, $4 ? $4->child_count:0); }
-    ;
+    
+var_decl
+  : tipo T_ID T_ASSIGN expr T_SEMI
+    { insert_symbol(current_scope, $2, $1); $$ = make_assign_node(make_id_node($2), $4); }
+  ;
 
 bloque
-    : T_LBRACE declaraciones sentencias T_RBRACE
+    : T_LBRACE decl_vars sentencias T_RBRACE
       {
-          ASTNode* all_nodes[($2 ? $2->child_count :0) + ($3 ? $3->child_count :0)];
+          int total = ($2 ? $2->child_count : 0) + ($3 ? $3->child_count : 0);
+          ASTNode** all_nodes = malloc(sizeof(ASTNode*) * total);
           int idx = 0;
-          if ($2) {
-              for(int i=0;i<$2->child_count;i++) all_nodes[idx++] = $2->children[i];
-          }
-          if ($3) {
-              for(int i=0;i<$3->child_count;i++) all_nodes[idx++] = $3->children[i];
-          }
+
+          if ($2)
+              for (int i = 0; i < $2->child_count; i++)
+                  all_nodes[idx++] = $2->children[i];
+          if ($3)
+              for (int i = 0; i < $3->child_count; i++)
+                  all_nodes[idx++] = $3->children[i];
+
           $$ = make_block_node(all_nodes, idx);
       }
     ;
-
+    
 sentencias
     : /* vacío */ { $$ = NULL; }
     | sentencias sentencia
@@ -108,11 +145,43 @@ sentencias
               ASTNode* arr[1] = { $2 };
               $$ = make_block_node(arr, 1);
           } else {
+              $1->children = realloc($1->children,
+                                     sizeof(ASTNode*) * ($1->child_count + 1));
+              $1->children[$1->child_count++] = $2;
+              $$ = $1;
+          }
+      }
+    ;
+
+/*decl_funcs
+    : { $$ = NULL; }
+    | decl_funcs method_decl
+      {
+          if ($1 == NULL) {
+              ASTNode* arr[1] = { $2 };
+              $$ = make_block_node(arr, 1);
+          } else {
               $1->children = realloc($1->children, sizeof(ASTNode*) * ($1->child_count + 1));
               $1->children[$1->child_count++] = $2;
               $$ = $1;
           }
       }
+    ;*/
+    
+/*method_decl
+  : tipo T_ID T_LPAREN lista_param T_RPAREN bloque
+      { $$ = make_func_node($1, $2, $4 ? $4->children : NULL, $4 ? $4->child_count : 0, $6); }
+  | T_VOID T_ID T_LPAREN lista_param T_RPAREN bloque
+      { $$ = make_func_node(TYPE_VOID, $2, $4 ? $4->children : NULL, $4 ? $4->child_count : 0, $6); }
+  | tipo T_ID T_LPAREN lista_param T_RPAREN T_EXTERN T_SEMI
+      { $$ = make_extern_func_node($1, $2, $4 ? $4->children : NULL, $4 ? $4->child_count : 0); }
+  | T_VOID T_ID T_LPAREN lista_param T_RPAREN T_EXTERN T_SEMI
+      { $$ = make_extern_func_node(TYPE_VOID, $2, $4 ? $4->children : NULL, $4 ? $4->child_count : 0); }
+  ;*/
+
+method_call
+    : T_ID T_LPAREN expr_list T_RPAREN
+      { $$ = make_func_call_node($1, $3 ? $3->children : NULL, $3 ? $3->child_count : 0); }
     ;
 
 sentencia
@@ -120,6 +189,9 @@ sentencia
     | retorno    { $$ = $1; }
     | while_stmt { $$ = $1; }
     | if_stmt    { $$ = $1; }
+    | method_call T_SEMI    { $$ = make_block_node((ASTNode*[]) { $1 }, 1); }
+    | bloque     { $$ = $1; }
+    | T_SEMI     { $$ = NULL; }
     ;
 
 asignacion
@@ -171,8 +243,7 @@ expr
     | expr T_AND expr     { $$ = make_binop_node("&&", $1, $3); }
     | expr T_OR expr      { $$ = make_binop_node("||", $1, $3); }
     | T_NOT expr          { $$ = make_unop_node("!", $2); }
-    | T_ID T_LPAREN expr_list T_RPAREN
-        { $$ = make_func_call_node($1, $3 ? $3->children : NULL, $3 ? $3->child_count : 0); }
+    | method_call         { $$ = $1; }
     ;
 
 expr_list
@@ -215,6 +286,7 @@ void yyerror(const char *s) {
 
 int main(int argc, char **argv) {
     extern FILE *yyin;
+    yydebug = 1;
     current_scope = create_scope(NULL);  // scope raíz del programa
 
     if (argc > 1) {

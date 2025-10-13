@@ -145,6 +145,9 @@ void print_ast(ASTNode* node, int indent) {
         case NODE_UNOP:  printf("UNOP %s\n", node->op); break;
         case NODE_ASSIGN:printf("ASSIGN\n"); break;
         case NODE_RETURN:printf("RETURN\n"); break;
+        case NODE_FUNC:         printf("FUNC %s\n", node->id); break;
+        case NODE_EXTERN_FUNC:  printf("EXTERN FUNC %s\n", node->id); break;
+        case NODE_FUNC_CALL:    printf("FUNC CALL %s\n", node->id); break;
         case NODE_IF:    printf("IF\n"); break;
         case NODE_WHILE: printf("WHILE\n"); break;
         case NODE_BLOCK: printf("BLOCK\n"); break;
