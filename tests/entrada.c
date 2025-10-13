@@ -1,11 +1,20 @@
-program main {
-  integer x;
-  bool flag;
-  x = 3 + 5 * 2;
-  if (x > 10) then return x;
-  while (x < 20) {
-    x = x + 1;
-  }
-  return;
+Program
+{
+bool es_par(integer n)
+{
+    bool resultado = true;
+    while (n > 0) 
+    {
+        resultado = !resultado;
+        n = n - 1;
+    }
+    return resultado;
+}
+
+void main()
+{
+    bool b = es_par(3);
+    return;
+}
 }
 
