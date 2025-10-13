@@ -1,5 +1,8 @@
-program ejemplo {
-  integer x;
-  bool flag;
+Program
+{
+void main()
+{
+    x = 5;
+}
 }
 

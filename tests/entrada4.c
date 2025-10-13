@@ -1,6 +1,11 @@
-program demo {
-  integer x;
-  x = 5;
-  return x;
+Program
+{
+void main()
+{
+    integer a = 3;
+    if a > 0 then
+    {
+        return;
+    }
 }
 
