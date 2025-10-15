@@ -138,22 +138,21 @@ void print_ast(ASTNode* node, int indent) {
     for (int i=0;i<indent;i++) printf("  ");
 
     switch (node->type) {
-        case NODE_INT:   printf("INT %d\n", node->ival); break;
-        case NODE_BOOL:  printf("BOOL %s\n", node->ival ? "true" : "false"); break;
-        case NODE_ID:    printf("ID %s\n", node->id); break;
-        case NODE_BINOP: printf("BINOP %s\n", node->op); break;
-        case NODE_UNOP:  printf("UNOP %s\n", node->op); break;
-        case NODE_ASSIGN:printf("ASSIGN\n"); break;
-        case NODE_RETURN:printf("RETURN\n"); break;
+        case NODE_INT:   	printf("INT %d\n", node->ival); break;
+        case NODE_BOOL:  	printf("BOOL %s\n", node->ival ? "true" : "false"); break;
+        case NODE_ID:    	printf("ID %s\n", node->id); break;
+        case NODE_BINOP: 	printf("BINOP %s\n", node->op); break;
+        case NODE_UNOP:  	printf("UNOP %s\n", node->op); break;
+        case NODE_ASSIGN:	printf("ASSIGN\n"); break;
+        case NODE_RETURN:	printf("RETURN\n"); break;
         case NODE_FUNC:         printf("FUNC %s\n", node->id); break;
-        case NODE_EXTERN_FUNC:  printf("EXTERN FUNC %s\n", node->id); break;
-        case NODE_FUNC_CALL:    printf("FUNC CALL %s\n", node->id); break;
-        case NODE_IF:    printf("IF\n"); break;
-        case NODE_WHILE: printf("WHILE\n"); break;
-        case NODE_BLOCK: printf("BLOCK\n"); break;
-        case NODE_PROG:  printf("PROGRAM\n"); break;
-        case NODE_FUNC_CALL: printf("FUNC_CALL %s\n", node->id); break;
-        default:         printf("UNKNOWN\n");
+        case NODE_EXTERN_FUNC:  printf("EXTERN FUNC %s\n", node->id); break;    
+        case NODE_IF:    	printf("IF\n"); break;
+        case NODE_WHILE: 	printf("WHILE\n"); break;
+        case NODE_BLOCK: 	printf("BLOCK\n"); break;
+        case NODE_PROG:  	printf("PROGRAM\n"); break;
+        case NODE_FUNC_CALL: 	printf("FUNC_CALL %s\n", node->id); break;
+        default:         	printf("UNKNOWN\n");
     }
 
     if (node->left) print_ast(node->left, indent+1);
