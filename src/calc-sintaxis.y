@@ -4,11 +4,13 @@
 #include <string.h>
 #include "ast.h"
 #include "symtable.h"
+#include "codegen.h"
 
 int yylex(void);
 void yyerror(const char *s);
 
 Scope* current_scope = NULL;
+ASTNode* root_ast = NULL;
 
 /* --- Estructura para guardar firmas de funciones (no modifica symtable) --- */
 typedef struct FuncInfo {
@@ -90,6 +92,7 @@ programa
           $3 ? $3->children : NULL,
           $3 ? $3->child_count : 0, NULL, 0);
       print_ast($$, 0);
+      root_ast = $$;
     }
   ;
   
@@ -513,7 +516,17 @@ int main(int argc, char **argv) {
         }
     }
     int result = yyparse();
-
+    
+    /* --- Generar código intermedio --- */
+    if (root_ast) {
+    	printf("\n=== GENERACIÓN DE CÓDIGO INTERMEDIO ===\n");
+    	TAC* code = gen_code(root_ast);
+    	print_tac(code);
+    	free_tac(code);
+    } else {
+    	printf("No se generó AST raíz.\n");
+    }
+    
     free_scope(current_scope); // libera el scope raíz
 
     /* liberar lista de funciones */
