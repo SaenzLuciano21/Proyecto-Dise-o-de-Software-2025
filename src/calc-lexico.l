@@ -45,12 +45,12 @@ digito  [0-9]
 "{"                  { return T_LBRACE; }
 "}"                  { return T_RBRACE; }
 
-{digito}+            { yylval.ival = atoi(yytext); return T_INT_LITERAL; }
-{letra}({letra}|{digito}|_)*   { yylval.sval = strdup(yytext); return T_ID; }
-
-[ \t\r\n]+           { /* ignora espacios */ }
-
-.                    { printf("Caracter inesperado: %s\n", yytext); }
+{digito}+            		{ yylval.ival = atoi(yytext); return T_INT_LITERAL; }
+{letra}({letra}|{digito}|_)*   	{ yylval.sval = strdup(yytext); return T_ID; }
+[ \t\r\n]+           		{ /* ignora espacios */ }
+"//".*                 		{ /* ignora comentarios de una línea */ }
+"/*"([^*]|\*+[^*/])*\*+"/"   	{ /* ignora comentarios de bloque */ }
+.                    		{ printf("Caracter inesperado: %s\n", yytext); }
 
 %%
 
