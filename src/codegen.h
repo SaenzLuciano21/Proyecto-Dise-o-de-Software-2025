@@ -1,6 +1,5 @@
 #ifndef CODEGEN_H
 #define CODEGEN_H
-
 #include "ast.h"
 
 /* ---------- Estructura del Código Intermedio (TAC) ---------- */

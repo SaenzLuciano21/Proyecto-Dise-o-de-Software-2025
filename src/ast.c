@@ -109,9 +109,23 @@ ASTNode* make_func_node(VarType tipo, char* name, ASTNode** params, int param_co
     ASTNode* n = new_node(NODE_FUNC);
     n->id = strdup(name);
     n->vtype = tipo;
-    n->children = params;
-    n->child_count = param_count;
-    n->left = body;  // cuerpo de la función
+
+    // cantidad total = parámetros + cuerpo (si hay)
+    int count = param_count + (body ? 1 : 0);
+
+    if (count > 0) {
+        n->children = malloc(sizeof(ASTNode*) * count);
+        int i = 0;
+        for (; i < param_count; i++) {
+            n->children[i] = params[i];
+        }
+        if (body)
+            n->children[i] = body;
+        n->child_count = count;
+    }
+
+    n->left = NULL;
+    n->right = NULL;
     return n;
 }
 
@@ -125,7 +139,8 @@ ASTNode* make_extern_func_node(VarType tipo, char* name, ASTNode** params, int p
 }
 
 ASTNode* make_func_call_node(char* name, ASTNode** args, int arg_count) {
-    ASTNode* n = new_node(NODE_FUNC);
+    //ASTNode* n = new_node(NODE_FUNC);
+    ASTNode* n = new_node(NODE_FUNC_CALL);
     n->id = strdup(name);
     n->children = args;
     n->child_count = arg_count;
