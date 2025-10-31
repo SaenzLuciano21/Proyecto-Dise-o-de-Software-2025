@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+TAC* make_tac_label(char* label);
 /* contadores para temporales y etiquetas */
 static int temp_count = 0;
 static int label_count = 0;
@@ -40,6 +41,14 @@ static TAC* join_tac(TAC* a, TAC* b) {
     return a;
 }
 
+TAC* tac_get_last(TAC* code) {
+    if (!code) return NULL;
+    TAC* t = code;
+    while (t->next)
+        t = t->next;
+    return t;
+}
+
 /* devuelve el último nodo de la lista o NULL */
 static TAC* tac_last(TAC* t) {
     if (!t) return NULL;
@@ -51,7 +60,6 @@ static TAC* tac_last(TAC* t) {
 void print_tac(TAC* code) {
     for (TAC* t = code; t; t = t->next) {
         if (!t->op) continue;
-
         if (strcmp(t->op, "LABEL") == 0) {
             printf("%s:\n", t->result);
         } else if (strcmp(t->op, "GOTO") == 0) {
@@ -59,10 +67,7 @@ void print_tac(TAC* code) {
         } else if (strcmp(t->op, "IF_FALSE_GOTO") == 0) {
             printf("ifFalse %s goto %s\n", t->arg1 ? t->arg1 : "", t->result ? t->result : "");
         } else if (strcmp(t->op, "CALL") == 0) {
-            printf("%s = call %s, %s\n",
-                   t->result ? t->result : "",
-                   t->arg1 ? t->arg1 : "",
-                   t->arg2 ? t->arg2 : "0");
+            printf("%s = call %s, %s\n", t->result ? t->result : "", t->arg1 ? t->arg1 : "", t->arg2 ? t->arg2 : "0");
         } else if (strcmp(t->op, "RETURN") == 0) {
             if (t->arg1)
                 printf("return %s\n", t->arg1);
@@ -71,31 +76,16 @@ void print_tac(TAC* code) {
         } else if (strcmp(t->op, "PARAM") == 0) {
             printf("param %s\n", t->arg1 ? t->arg1 : "");
         } else if (strcmp(t->op, "ASSIGN") == 0) {
-            /* arg1 -> result (assignment) */
-            printf("%s = %s\n",
-                   t->result ? t->result : "",
-                   t->arg1 ? t->arg1 : "");
+            printf("%s = %s\n", t->result ? t->result : "", t->arg1 ? t->arg1 : "");
         } else {
-            /* default: result = arg1 op arg2, o result = arg1 si es una asignación */
             if (strcmp(t->op, "=") == 0 && t->arg1 && !t->arg2) {
                 printf("%s = %s\n", t->result, t->arg1);
             } else if (t->result && t->arg2) {
-                printf("%s = %s %s %s\n",
-                       t->result,
-                       t->arg1 ? t->arg1 : "",
-                       t->op ? t->op : "",
-                       t->arg2 ? t->arg2 : "");
+                printf("%s = %s %s %s\n", t->result, t->arg1 ? t->arg1 : "", t->op ? t->op : "", t->arg2 ? t->arg2 : "");
             } else if (t->result && t->arg1 && !t->arg2) {
-                printf("%s = %s %s\n",
-                       t->result,
-                       t->op ? t->op : "",
-                       t->arg1);
+                printf("%s = %s %s\n", t->result, t->op ? t->op : "", t->arg1);
             } else {
-                printf("%s %s %s %s\n",
-                       t->op ? t->op : "",
-                       t->arg1 ? t->arg1 : "",
-                       t->arg2 ? t->arg2 : "",
-                       t->result ? t->result : "");
+                printf("%s %s %s %s\n", t->op ? t->op : "", t->arg1 ? t->arg1 : "", t->arg2 ? t->arg2 : "", t->result ? t->result : "");
             }
         }
     }
@@ -115,87 +105,70 @@ void free_tac(TAC* code) {
 }
 
 /* generación de expresiones (devuelve lista TAC cuyo último tiene campo result con la "location") */
-
-/* gen_expr: genera TAC para expresión y devuelve lista, con última instrucción teniendo ->result */
 static TAC* gen_code_internal(ASTNode* node) {
-    if (!node) return NULL;
-
+    if (!node) { printf("gen_code_internal: node=NULL\n"); return NULL; }
+    printf("GEN debug: node type=%d, child_count=%d, id=%s\n",
+           node->type, node->child_count, node->id?node->id:"(no id)");
+    if (node->type == NODE_IF) {
+        printf("  IF: left=%p right=%p children0=%p\n",
+               (void*)node->left, (void*)node->right,
+               (node->children && node->child_count>0) ? (void*)node->children[0] : NULL);
+    }
+    if (node->type == NODE_FUNC) {
+        printf("  FUNC: child_count=%d\n", node->child_count);
+        for (int i=0;i<node->child_count;i++) {
+            printf("    child[%d]=%p type=%d\n", i, (void*)node->children[i],
+                   node->children[i] ? node->children[i]->type : -1);
+        }
+    }
+    
     switch (node->type) {
 
         case NODE_INT: {
             char tmpbuf[32];
             sprintf(tmpbuf, "%d", node->ival);
             char* t = new_temp();
-            TAC* load = make_tac("=", tmpbuf, NULL, t); /* uso '=' para carga literal en temp */
-            return load;
+            return make_tac("=", tmpbuf, NULL, t);
         }
 
         case NODE_BOOL: {
             char tmpbuf[8];
             sprintf(tmpbuf, "%d", node->ival ? 1 : 0);
             char* t = new_temp();
-            TAC* load = make_tac("=", tmpbuf, NULL, t);
-            return load;
+            return make_tac("=", tmpbuf, NULL, t);
         }
 
         case NODE_ID: {
-            /* cargar el valor de la variable en un temporal */
             char* t = new_temp();
-            TAC* load = make_tac("=", node->id, NULL, t); /* interpretamos "=" con arg1=var -> result=temp */
-            return load;
+            return make_tac("=", node->id, NULL, t);
         }
 
         case NODE_BINOP: {
-            /* generar código para izquierda y derecha */
             TAC* c1 = gen_code_internal(node->left);
             TAC* c2 = gen_code_internal(node->right);
             char* r1 = tac_last(c1) ? tac_last(c1)->result : NULL;
             char* r2 = tac_last(c2) ? tac_last(c2)->result : NULL;
             char* tres = new_temp();
-            /* op = node->op (ej. "+", "==", "&&", etc.) */
             TAC* op = make_tac(node->op, r1 ? r1 : "", r2 ? r2 : "", tres);
             return join_tac(join_tac(c1, c2), op);
         }
 
         case NODE_UNOP: {
-            /* sólo soportamos '!' y unary '-' */
             TAC* c = gen_code_internal(node->left);
             char* r = tac_last(c) ? tac_last(c)->result : NULL;
             char* tres = new_temp();
             if (node->op && strcmp(node->op, "!") == 0) {
-                TAC* op = make_tac("!", r ? r : "", NULL, tres); /* representamos unario como op '!' */
-                return join_tac(c, op);
+                return join_tac(c, make_tac("!", r ? r : "", NULL, tres));
             } else if (node->op && strcmp(node->op, "-") == 0) {
-                TAC* op = make_tac("NEG", r ? r : "", NULL, tres);
-                return join_tac(c, op);
+                return join_tac(c, make_tac("NEG", r ? r : "", NULL, tres));
             } else {
-                /* operador no soportado */
                 return c;
             }
         }
 
-        case NODE_FUNC_CALL: {
-            /* generar args (evaluados left-to-right) */
-            TAC* all = NULL;
-            for (int i = 0; i < node->child_count; ++i) {
-                TAC* a = gen_code_internal(node->children[i]);
-                char* ar = tac_last(a) ? tac_last(a)->result : NULL;
-                TAC* param = make_tac("PARAM", ar ? ar : "", NULL, NULL);
-                all = join_tac(all, join_tac(a, param));
-            }
-            char* tres = new_temp();
-            char numbuf[16];
-            sprintf(numbuf, "%d", node->child_count);
-            TAC* call = make_tac("CALL", node->id, numbuf, tres);
-            return join_tac(all, call);
-        }
-
         case NODE_ASSIGN: {
-            /* left debe ser ID (make_id_node en tu AST) */
-            /* generar RHS */
             TAC* rhs = gen_code_internal(node->right);
             char* rval = tac_last(rhs) ? tac_last(rhs)->result : NULL;
-            /* instrucción: ASSIGN rval -> left->id */
             TAC* asg = make_tac("ASSIGN", rval ? rval : "", NULL, node->left->id);
             return join_tac(rhs, asg);
         }
@@ -210,60 +183,49 @@ static TAC* gen_code_internal(ASTNode* node) {
                 return make_tac("RETURN", NULL, NULL, NULL);
             }
         }
-
+        
         case NODE_IF: {
-            /* node->left = cond, node->right = then (ASTNode), node->children[0]? = else */
             TAC* cond = gen_code_internal(node->left);
-            char* cond_res = tac_last(cond) ? tac_last(cond)->result : NULL;
-            char* Lelse = new_label();
-            char* Lend = new_label();
-            /* ifFalse cond_res goto Lelse */
-            TAC* iffalse = make_tac("IF_FALSE_GOTO", cond_res ? cond_res : "", NULL, Lelse);
+            char* label_else = new_label();
+            char* label_end = new_label();
+            //TAC* code = join_tac(cond, make_tac("ifFalse", cond->result, label_else, NULL));
+            TAC* last_cond = tac_get_last(cond);
+            TAC* code = join_tac(cond, make_tac("ifFalse", last_cond->result, label_else, NULL));
 
-            TAC* then_code = gen_code_internal(node->right);
-            TAC* goto_end = make_tac("GOTO", NULL, NULL, Lend);
+            // THEN
+            TAC* then_code = gen_code_internal(node->children[0]);
+            code = join_tac(code, then_code);
+            code = join_tac(code, make_tac("goto", label_end, NULL, NULL));
 
-            TAC* label_else = make_tac("LABEL", NULL, NULL, Lelse);
-            TAC* label_end = make_tac("LABEL", NULL, NULL, Lend);
+            // ELSE (si existe)
+            code = join_tac(code, make_tac_label(label_else));
+            if (node->child_count > 1 && node->children[1])
+                code = join_tac(code, gen_code_internal(node->children[1]));
 
-            TAC* seq = NULL;
-            seq = join_tac(seq, cond);
-            seq = join_tac(seq, iffalse);
-            seq = join_tac(seq, then_code);
-            seq = join_tac(seq, goto_end);
-
-            if (node->children && node->child_count > 0 && node->children[0]) {
-                /* hay else */
-                TAC* else_code = gen_code_internal(node->children[0]);
-                seq = join_tac(seq, label_else);
-                seq = join_tac(seq, else_code);
-            } else {
-                /* no else: label_else será el Lend */
-                seq = join_tac(seq, label_else); /* Lelse == Lend in effect; but we'll place label_end later */
-            }
-            seq = join_tac(seq, label_end);
-            return seq;
+            code = join_tac(code, make_tac_label(label_end));
+            return code;
         }
 
         case NODE_WHILE: {
-            /* node->left = cond, node->right = body */
             char* Lstart = new_label();
             char* Lend = new_label();
             TAC* label_start = make_tac("LABEL", NULL, NULL, Lstart);
+
             TAC* cond = gen_code_internal(node->left);
             char* cond_res = tac_last(cond) ? tac_last(cond)->result : NULL;
             TAC* iffalse = make_tac("IF_FALSE_GOTO", cond_res ? cond_res : "", NULL, Lend);
+
             TAC* body = gen_code_internal(node->right);
             TAC* goto_start = make_tac("GOTO", NULL, NULL, Lstart);
             TAC* label_end = make_tac("LABEL", NULL, NULL, Lend);
 
-            TAC* seq = NULL;
-            seq = join_tac(seq, label_start);
+            TAC* seq = label_start;
             seq = join_tac(seq, cond);
             seq = join_tac(seq, iffalse);
             seq = join_tac(seq, body);
             seq = join_tac(seq, goto_start);
             seq = join_tac(seq, label_end);
+
             return seq;
         }
 
@@ -276,45 +238,33 @@ static TAC* gen_code_internal(ASTNode* node) {
         }
 
         case NODE_FUNC: {
-            printf("=== Generando código para función: %s ===\n", node->id);
-            print_ast(node, 1);
-        
             char labelbuf[64];
             sprintf(labelbuf, "%s", node->id);
-            TAC* label = make_tac("LABEL", NULL, NULL, labelbuf);
-            TAC* seq = label;
-        
-            /* generar código del cuerpo */
-            if (node->child_count > 0) {
-                ASTNode* bodyNode = node->children[node->child_count - 1];
-                if (bodyNode && bodyNode->type == NODE_BLOCK) {
-                    for (int i = 0; i < bodyNode->child_count; ++i) {
-                        TAC* stmt = gen_code_internal(bodyNode->children[i]);
-                        seq = join_tac(seq, stmt);
-                    }
-                } else {
-                    seq = join_tac(seq, gen_code_internal(bodyNode));
-                }
+            TAC* seq = make_tac("LABEL", NULL, NULL, labelbuf);
+
+            /* buscar cuerpo: primer BLOCK entre children (si existe) */
+            for (int i = 0; i < node->child_count; ++i) {
+                ASTNode* ch = node->children[i];
+                if (!ch) continue;
+                /* omitir params/otros; procesar todos los nodos que no sean PARAM */
+                if (ch->type == NODE_PARAM) continue;
+                TAC* stm = gen_code_internal(ch);
+                if (stm) seq = join_tac(seq, stm);
             }
-            
+
             return seq;
         }
-
+        
         case NODE_EXTERN_FUNC: {
-            /* extern function: we just emit a label (no body) */
             char labelbuf[64];
             sprintf(labelbuf, "%s", node->id);
-            TAC* label = make_tac("LABEL", NULL, NULL, labelbuf);
-            return label;
+            return make_tac("LABEL", NULL, NULL, labelbuf);
         }
 
-        case NODE_PARAM: {
-            /* params are handled implicitly; but emit nothing here */
+        case NODE_PARAM:
             return NULL;
-        }
 
         case NODE_PROG: {
-            /* program: iterate over decls (children) */
             TAC* total = NULL;
             for (int i = 0; i < node->child_count; ++i) {
                 total = join_tac(total, gen_code_internal(node->children[i]));
@@ -331,5 +281,9 @@ static TAC* gen_code_internal(ASTNode* node) {
 /* wrapper para la API del header: usamos el mismo nombre gen_code */
 TAC* gen_code(ASTNode* node) {
     return gen_code_internal(node);
+}
+
+TAC* make_tac_label(char* label) {
+    return make_tac("LABEL", NULL, NULL, label);
 }
 
