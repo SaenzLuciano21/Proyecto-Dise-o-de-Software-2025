@@ -521,6 +521,9 @@ int main(int argc, char **argv) {
     if (root_ast) {
     	printf("\n=== GENERACIÓN DE CÓDIGO INTERMEDIO ===\n");
     	TAC* code = gen_code(root_ast);
+    	FILE* fout = fopen("out.s", "w");
+    	gen_asm(code, root_ast, fout);
+	fclose(fout);
     	print_tac(code);
     	free_tac(code);
     } else {

@@ -1,5 +1,6 @@
 #ifndef CODEGEN_H
 #define CODEGEN_H
+#include <stdio.h>
 #include "ast.h"
 
 /* ---------- Estructura del Código Intermedio (TAC) ---------- */
@@ -15,6 +16,6 @@ typedef struct TAC {
 TAC* gen_code(ASTNode* node);
 void print_tac(TAC* code);
 void free_tac(TAC* code);
-
+void gen_asm(TAC* code, ASTNode* ast_root, FILE* out);
 #endif
 

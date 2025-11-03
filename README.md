@@ -11,6 +11,8 @@ Incluye:
     Analizador léxico
     Analizador sintáctico
     Analizador Semántico (AST y TS)
+    Generador Codigo Intermedio
+    Generador Codigo Objeto
 
 ## Estructura del proyecto
 
@@ -19,9 +21,19 @@ Incluye:
 │ ├── calc-sintaxis.y
 │ ├── ast.c
 │ ├── ast.h
-│ └── ...
+│ └── codegen.c
+│ └── codegen.h
+│ └── codegen_asm.c
+│ └── symtable.c
+│ └── symtable.h
 ├── tests/
-│ └── entrada.c
+│ └── validos
+│    ├── entrada.c
+│    ├── entrada5.c
+| └── invalidos
+│    ├── entrada2.c
+│    ├── entrada3.c
+│    ├── entrada4.c
 ├── README.md
 
 ## Requisitos
@@ -36,16 +48,15 @@ Se puede compilar y ejecutar usando los siguientes comandos desde la carpeta `sr
 
 flex calc-lexico.l
 bison -d calc-sintaxis.y
-gcc -o calc lex.yy.c calc-sintaxis.tab.c -lfl
-
+gcc -o calc calc-sintaxis.tab.c lex.yy.c ast.c symtable.c codegen.c codegen_asm.c -lfl
 o ejecutando el archivo script "Run.sh" dentro de la carpeta `src`.
 
 ## Ejecución Tests
 
 Ejemplo de uso:
 
-    ./calc ../tests/entrada.c
-    ./calc ../tests/entrada2.c
-    ./calc ../tests/entrada3.c
-    ./calc ../tests/entrada4.c
-    ./calc ../tests/entrada5.c
+    ./calc ../tests/validos/entrada.c
+    ./calc ../tests/invalidos/entrada2.c
+    ./calc ../tests/invalidos/entrada3.c
+    ./calc ../tests/invalidos/entrada4.c
+    ./calc ../tests/validos/entrada5.c
