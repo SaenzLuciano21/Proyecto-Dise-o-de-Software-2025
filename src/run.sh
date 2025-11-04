@@ -8,12 +8,18 @@ flex calc-lexico.l
 bison -d calc-sintaxis.y
 
 # Compilar con GCC
-gcc -o calc lex.yy.c calc-sintaxis.tab.c -lfl
+gcc -o calc calc-sintaxis.tab.c lex.yy.c ast.c symtable.c codegen.c codegen_asm.c -lfl
+
 
 # Ejecutar tests
-for file in ../tests/entrada*.c; do
-    echo "Ejecutando $file..."
+for file in ../tests/validos/entrada*.c; do
+    echo "Ejecutando Tests VALIDOS $file..."
     ./calc "$file"
     echo "------------------------"
 done
 
+for file in ../tests/invalidos/entrada*.c; do
+    echo "Ejecutando Tests INVALIDOS $file..."
+    ./calc "$file"
+    echo "------------------------"
+done
