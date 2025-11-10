@@ -91,7 +91,7 @@ programa
       $$ = make_prog_node(
           $3 ? $3->children : NULL,
           $3 ? $3->child_count : 0, NULL, 0);
-      print_ast($$, 0);
+      /*print_ast($$, 0); Imprime el árbol */
       root_ast = $$;
     }
   ;
@@ -393,10 +393,6 @@ param
           /* crear nodo de parámetro */
           $$ = make_param_node($1,$2);
           $$->vtype = $1;
-          /* insertarlo en el scope de la función: en tiempo de parsing no siempre se ha creado el scope,
-             pero en nuestro flujo, lista_param es parseada *antes* de entrar a la función (porque la función
-             completa es una decl que contiene lista_param). Para mantener la semántica, insertaremos
-             los parámetros en el scope al entrar a la función (ver más abajo). */
       }
     ;
 
@@ -505,7 +501,7 @@ void yyerror(const char *s) {
 
 int main(int argc, char **argv) {
     extern FILE *yyin;
-    yydebug = 1;
+    /*yydebug = 1; Debug de Bison*/
     current_scope = create_scope(NULL);  // scope raíz del programa
 
     if (argc > 1) {
@@ -524,7 +520,7 @@ int main(int argc, char **argv) {
     	FILE* fout = fopen("out.s", "w");
     	gen_asm(code, root_ast, fout);
 	fclose(fout);
-    	print_tac(code);
+    	/*print_tac(code); Imprime el código intermedio*/
     	free_tac(code);
     } else {
     	printf("No se generó AST raíz.\n");
