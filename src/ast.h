@@ -42,6 +42,7 @@ ASTNode* make_extern_func_node(VarType tipo, char* name, ASTNode** params, int p
 ASTNode* make_param_node(VarType tipo, char* name);
 ASTNode* make_extern_func_node(VarType tipo, char* name, ASTNode** params, int param_count);
 ASTNode* make_func_call_node(char* name, ASTNode** args, int arg_count);
+ASTNode* fold_constants(ASTNode* node);
 
 /* Utilidades */
 void print_ast(ASTNode* node, int indent);

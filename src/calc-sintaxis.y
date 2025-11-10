@@ -515,6 +515,7 @@ int main(int argc, char **argv) {
     
     /* --- Generar código intermedio --- */
     if (root_ast) {
+    	root_ast = fold_constants(root_ast);
     	printf("\n=== GENERACIÓN DE CÓDIGO INTERMEDIO ===\n");
     	TAC* code = gen_code(root_ast);
     	FILE* fout = fopen("out.s", "w");

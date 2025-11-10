@@ -190,3 +190,67 @@ void free_ast(ASTNode* node) {
     free(node);
 }
 
+ASTNode* fold_constants(ASTNode* node) {
+    if (!node) return NULL;
+
+    // Aplicar recursivamente
+    if (node->left)
+        node->left = fold_constants(node->left);
+    if (node->right)
+        node->right = fold_constants(node->right);
+    for (int i = 0; i < node->child_count; i++)
+        node->children[i] = fold_constants(node->children[i]);
+
+    // Operaciones binarias entre constantes
+    if (node->type == NODE_BINOP &&
+        node->left && node->right &&
+        node->left->type == NODE_INT && node->right->type == NODE_INT) {
+
+        int a = node->left->ival;
+        int b = node->right->ival;
+        int result;
+        int valid = 1;
+
+        if (strcmp(node->op, "+") == 0) result = a + b;
+        else if (strcmp(node->op, "-") == 0) result = a - b;
+        else if (strcmp(node->op, "*") == 0) result = a * b;
+        else if (strcmp(node->op, "/") == 0) {
+            if (b == 0) valid = 0;
+            else result = a / b;
+        } else if (strcmp(node->op, "==") == 0) result = (a == b);
+        else if (strcmp(node->op, "!=") == 0) result = (a != b);
+        else if (strcmp(node->op, "<") == 0) result = (a < b);
+        else if (strcmp(node->op, ">") == 0) result = (a > b);
+        else if (strcmp(node->op, "<=") == 0) result = (a <= b);
+        else if (strcmp(node->op, ">=") == 0) result = (a >= b);
+        else valid = 0;
+
+        if (valid) {
+            node->type = NODE_INT;
+            node->ival = result;
+            free(node->op);
+            node->op = NULL;
+            free_ast(node->left);
+            free_ast(node->right);
+            node->left = node->right = NULL;
+            node->child_count = 0;
+        }
+    }
+
+    // Operaciones unarias sobre constantes
+    if (node->type == NODE_UNOP &&
+        node->left && node->left->type == NODE_BOOL) {
+        if (strcmp(node->op, "!") == 0) {
+            int val = node->left->ival;
+            node->type = NODE_BOOL;
+            node->ival = !val;
+            free(node->op);
+            node->op = NULL;
+            free_ast(node->left);
+            node->left = NULL;
+        }
+    }
+
+    return node;
+}
+
