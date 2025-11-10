@@ -106,8 +106,11 @@ void free_tac(TAC* code) {
 
 /* generación de expresiones (devuelve lista TAC cuyo último tiene campo result con la "location") */
 static TAC* gen_code_internal(ASTNode* node) {
-    if (!node) { printf("gen_code_internal: node=NULL\n"); return NULL; }
-    printf("GEN debug: node type=%d, child_count=%d, id=%s\n",
+    if (!node) {
+        /*printf("gen_code_internal: node=NULL\n");*/
+        return NULL;
+    }
+    /*printf("GEN debug: node type=%d, child_count=%d, id=%s\n",
            node->type, node->child_count, node->id?node->id:"(no id)");
     if (node->type == NODE_IF) {
         printf("  IF: left=%p right=%p children0=%p\n",
@@ -120,7 +123,7 @@ static TAC* gen_code_internal(ASTNode* node) {
             printf("    child[%d]=%p type=%d\n", i, (void*)node->children[i],
                    node->children[i] ? node->children[i]->type : -1);
         }
-    }
+    }*/
     
     switch (node->type) {
 
