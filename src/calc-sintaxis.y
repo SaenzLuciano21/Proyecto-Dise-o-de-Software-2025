@@ -91,7 +91,16 @@ programa
       $$ = make_prog_node(
           $3 ? $3->children : NULL,
           $3 ? $3->child_count : 0, NULL, 0);
-      /*print_ast($$, 0); Imprime el árbol */
+	  /*print_ast($$, 0); Imprime el árbol */
+      printf("\n=== AST ORIGINAL ===\n");
+      print_ast($$, 0);
+      	
+      printf("\n=== APLICANDO OPTIMIZACIÓN: PROPAGACIÓN DE CONSTANTES ===\n");
+      fold_constants($$);
+      
+      printf("\n=== AST OPTIMIZADO ===\n");
+      print_ast($$, 0);
+      	
       root_ast = $$;
     }
   ;
@@ -515,7 +524,6 @@ int main(int argc, char **argv) {
     
     /* --- Generar código intermedio --- */
     if (root_ast) {
-    	root_ast = fold_constants(root_ast);
     	printf("\n=== GENERACIÓN DE CÓDIGO INTERMEDIO ===\n");
     	TAC* code = gen_code(root_ast);
     	FILE* fout = fopen("out.s", "w");
